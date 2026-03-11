@@ -79,6 +79,7 @@ export function TeamRadio({ entries, raceControlEntries }: TeamRadioProps) {
         <div className="flex items-center gap-2">
           <button
             onClick={handlePrev}
+            aria-label="이전 드라이버"
             className="p-1 rounded hover:bg-white/10 transition-colors text-white/50 hover:text-white/90"
           >
             <ChevronLeft size={14} />
@@ -105,6 +106,7 @@ export function TeamRadio({ entries, raceControlEntries }: TeamRadioProps) {
 
           <button
             onClick={handleNext}
+            aria-label="다음 드라이버"
             className="p-1 rounded hover:bg-white/10 transition-colors text-white/50 hover:text-white/90"
           >
             <ChevronRight size={14} />
