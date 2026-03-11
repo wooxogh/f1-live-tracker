@@ -33,8 +33,8 @@ class TrackLayoutServiceTest {
     @InjectMocks TrackLayoutService trackLayoutService;
 
     @Test
-    @DisplayName("DB에 트랙 레이아웃 있을 때 캐시에서 반환")
-    void getTrackPoints_cachedInDb_returnsFromDb() throws Exception {
+    @DisplayName("DB에 트랙 레이아웃 있을 때 드라이버/위치 API 호출 없이 DB에서 반환")
+    void getTrackPoints_cachedInDb_skipsDriverAndLocationFetch() throws Exception {
         Map<String, Object> session = Map.of(
                 "meeting_key", 1229,
                 "circuit_short_name", "Bahrain",
@@ -58,7 +58,10 @@ class TrackLayoutServiceTest {
         List<Map<String, Object>> result = trackLayoutService.getTrackPoints(9158);
 
         assertThat(result).hasSize(2);
+        // 세션 조회는 항상 발생, 드라이버/위치 fetch는 캐시 히트 시 스킵됨
+        verify(openF1Client).getSessionByKey(9158);
         verify(openF1Client, never()).getDrivers(anyInt());
+        verify(openF1Client, never()).getLocationsByDriver(anyInt(), anyInt(), anyString(), anyString());
     }
 
     @Test

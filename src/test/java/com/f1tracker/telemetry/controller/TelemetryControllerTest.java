@@ -37,8 +37,8 @@ class TelemetryControllerTest {
 
         mockMvc.perform(get("/api/v1/sessions/9158/laps/latest"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.1.lap_number").value(12))   // VER 최신 랩
-                .andExpect(jsonPath("$.44.lap_number").value(11)); // HAM 최신 랩
+                .andExpect(jsonPath("$['1'].lap_number").value(12))   // VER 최신 랩
+                .andExpect(jsonPath("$['44'].lap_number").value(11)); // HAM 최신 랩
     }
 
     @Test
