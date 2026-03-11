@@ -1,6 +1,7 @@
 package com.f1tracker.telemetry.controller;
 
 import com.f1tracker.common.client.OpenF1Client;
+import com.f1tracker.telemetry.service.RaceControlService;
 import com.f1tracker.telemetry.service.TeamRadioService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,7 +13,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 import java.util.Map;
 
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -24,6 +25,7 @@ class TelemetryControllerTest {
     @Autowired MockMvc mockMvc;
     @MockBean OpenF1Client openF1Client;
     @MockBean TeamRadioService teamRadioService;
+    @MockBean RaceControlService raceControlService;
 
     @Test
     @DisplayName("최신 랩 조회 - 드라이버별 최신 랩 반환")
@@ -86,6 +88,30 @@ class TelemetryControllerTest {
         given(openF1Client.getTeamRadio(anyInt(), isNull())).willReturn(radio);
 
         mockMvc.perform(get("/api/v1/sessions/9158/radio/recent"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(20));
+    }
+
+    @Test
+    @DisplayName("레이스 컨트롤 조회 - 데이터 없을 때 빈 리스트 반환")
+    void getRecentRaceControl_noData_returnsEmptyList() throws Exception {
+        given(openF1Client.getRaceControl(anyInt(), isNull())).willReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/sessions/9158/race-control/recent"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    @DisplayName("레이스 컨트롤 조회 - 20개 초과 시 마지막 20개만 반환")
+    void getRecentRaceControl_over20_returnsLast20() throws Exception {
+        List<Map<String, Object>> data = new java.util.ArrayList<>();
+        for (int i = 1; i <= 25; i++) {
+            data.add(Map.of("category", "Flag", "message", "message " + i, "date", "2024-03-02T14:00:00"));
+        }
+        given(openF1Client.getRaceControl(anyInt(), isNull())).willReturn(data);
+
+        mockMvc.perform(get("/api/v1/sessions/9158/race-control/recent"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(20));
     }
