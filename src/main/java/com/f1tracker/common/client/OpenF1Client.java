@@ -113,4 +113,22 @@ public class OpenF1Client {
             return List.of();
         }
     }
+
+    public List<Map<String, Object>> getRaceControl(int sessionKey, String afterDate) {
+        try {
+            if (afterDate != null) {
+                return openF1RestClient.get()
+                        .uri("/race_control?session_key={key}&date>={date}", sessionKey, afterDate)
+                        .retrieve()
+                        .body(new ParameterizedTypeReference<>() {});
+            }
+            return openF1RestClient.get()
+                    .uri("/race_control?session_key={key}", sessionKey)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.debug("No race control data for session {} ({})", sessionKey, e.getMessage());
+            return List.of();
+        }
+    }
 }

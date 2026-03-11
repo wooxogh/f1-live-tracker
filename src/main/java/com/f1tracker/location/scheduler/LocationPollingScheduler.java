@@ -2,6 +2,7 @@ package com.f1tracker.location.scheduler;
 
 import com.f1tracker.common.client.OpenF1Client;
 import com.f1tracker.location.service.LocationBroadcastService;
+import com.f1tracker.telemetry.service.RaceControlService;
 import com.f1tracker.telemetry.service.TeamRadioService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class LocationPollingScheduler {
     private final OpenF1Client openF1Client;
     private final LocationBroadcastService broadcastService;
     private final TeamRadioService teamRadioService;
+    private final RaceControlService raceControlService;
     private final StringRedisTemplate redisTemplate;
 
     @Value("${openf1.override-session-key:-1}")
@@ -80,6 +82,7 @@ public class LocationPollingScheduler {
                 redisTemplate.opsForValue().set(REDIS_SESSION_KEY, String.valueOf(sessionKey));
                 broadcastService.refreshDriverCache(sessionKey);
                 teamRadioService.refreshDriverCache(sessionKey);
+                raceControlService.reset();
                 log.info("Session updated: {} ({})", sessionKey, session.get("session_name"));
             }
         } catch (Exception e) {

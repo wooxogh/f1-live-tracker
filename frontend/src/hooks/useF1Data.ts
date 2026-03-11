@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { Session, TrackPoint, DriverPosition, LapData, RadioEntry } from '../types';
+import { Session, TrackPoint, DriverPosition, LapData, RadioEntry, RaceControlEntry } from '../types';
+import { DRIVERS_2026 } from '../lib/drivers';
 
 export type ConnectionStatus = 'CONNECTING' | 'LIVE' | 'DISCONNECTED' | 'OFF_SEASON';
 
@@ -18,7 +19,8 @@ export function useF1Data() {
   const [track, setTrack]                 = useState<TrackPoint[] | null>(null);
   const [positions, setPositions]         = useState<Record<number, DriverPosition>>({});
   const [lapData, setLapData]             = useState<Record<number, LapData>>({});
-  const [radioEntries, setRadioEntries]   = useState<RadioEntry[]>([]);
+  const [radioEntries, setRadioEntries]       = useState<RadioEntry[]>([]);
+  const [raceControlEntries, setRaceControlEntries] = useState<RaceControlEntry[]>([]);
   const [loadingMessage, setLoadingMessage] = useState<string>('세션 정보 불러오는 중...');
 
   const stompClientRef = useRef<Client | null>(null);
@@ -43,8 +45,9 @@ export function useF1Data() {
         if (!trackData || trackData.length === 0) throw new Error('No track data');
         setTrack(trackData);
 
-        // 팀 라디오 초기 로드
+        // 팀 라디오 + 레이스 컨트롤 초기 로드
         fetchRecentRadio(sessionData.session_key);
+        fetchRecentRaceControl(sessionData.session_key);
 
         setLoadingMessage('실시간 데이터 연결 중...');
         connectWebSocket(sessionData.session_key);
@@ -62,14 +65,33 @@ export function useF1Data() {
         const res = await fetch(`/api/v1/sessions/${sessionKey}/radio/recent`);
         if (!res.ok || !isMounted) return;
         const data = await res.json();
-        const entries: RadioEntry[] = data.map((r: Record<string, unknown>) => ({
-          driverNumber: r.driver_number as number,
-          nameAcronym:  r.name_acronym as string ?? '???',
-          teamColour:   r.team_colour  as string ?? 'FFFFFF',
-          date:         r.date         as string,
-          recordingUrl: r.recording_url as string,
-        }));
+        const entries: RadioEntry[] = data.map((r: Record<string, unknown>) => {
+          const driverNumber = r.driver_number as number;
+          const fallback = DRIVERS_2026.find(d => d.driverNumber === driverNumber);
+          return {
+            driverNumber,
+            nameAcronym:  r.name_acronym as string ?? fallback?.nameAcronym ?? '???',
+            teamColour:   r.team_colour  as string ?? fallback?.teamColour  ?? 'FFFFFF',
+            date:         r.date         as string,
+            recordingUrl: r.recording_url as string,
+          };
+        });
         if (isMounted) setRadioEntries(entries.reverse()); // 최신순
+      } catch { /* ignore */ }
+    };
+
+    const fetchRecentRaceControl = async (sessionKey: string) => {
+      try {
+        const res = await fetch(`/api/v1/sessions/${sessionKey}/race-control/recent`);
+        if (!res.ok || !isMounted) return;
+        const data: Record<string, unknown>[] = await res.json();
+        const entries: RaceControlEntry[] = data.map(r => ({
+          date:     r.date     as string,
+          category: r.category as string | null,
+          flag:     r.flag     as string | null,
+          message:  r.message  as string | null,
+        }));
+        if (isMounted) setRaceControlEntries(entries.reverse());
       } catch { /* ignore */ }
     };
 
@@ -91,6 +113,12 @@ export function useF1Data() {
             const data = JSON.parse(message.body);
             if (!data.entries?.length) return;
             setRadioEntries(prev => [...data.entries.reverse(), ...prev].slice(0, 50));
+          });
+
+          client.subscribe(`/topic/race-control/${sessionKey}`, (message) => {
+            const data = JSON.parse(message.body);
+            if (!data.entries?.length) return;
+            setRaceControlEntries(prev => [...data.entries.reverse(), ...prev].slice(0, 50));
           });
         },
         onDisconnect: () => { if (isMounted) setStatus('DISCONNECTED'); },
@@ -154,5 +182,5 @@ export function useF1Data() {
     };
   }, []);
 
-  return { status, session, track, positions, lapData, radioEntries, loadingMessage };
+  return { status, session, track, positions, lapData, radioEntries, raceControlEntries, loadingMessage };
 }
