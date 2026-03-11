@@ -26,6 +26,13 @@ export interface RadioEntry {
   recordingUrl: string;
 }
 
+export interface RaceControlEntry {
+  date: string;
+  category: string | null;
+  flag: string | null;
+  message: string | null;
+}
+
 export interface LapData {
   driver_number: number;
   lap_number: number | null;

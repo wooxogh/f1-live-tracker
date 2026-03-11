@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -62,5 +63,17 @@ public class TelemetryController {
         // 최신 20개만 반환
         int fromIdx = Math.max(0, radio.size() - 20);
         return ResponseEntity.ok(radio.subList(fromIdx, radio.size()));
+    }
+
+    /**
+     * 세션의 레이스 컨트롤 메시지 반환 (초기 로드용)
+     */
+    @GetMapping("/sessions/{sessionKey}/race-control/recent")
+    public ResponseEntity<List<Map<String, Object>>> getRecentRaceControl(@PathVariable int sessionKey) {
+        List<Map<String, Object>> data = openF1Client.getRaceControl(sessionKey, null);
+        if (data == null || data.isEmpty()) return ResponseEntity.ok(List.of());
+
+        int fromIdx = Math.max(0, data.size() - 20);
+        return ResponseEntity.ok(data.subList(fromIdx, data.size()));
     }
 }

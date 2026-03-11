@@ -12,7 +12,7 @@ import { useF1Data } from './hooks/useF1Data';
 import { Loader2 } from 'lucide-react';
 
 export default function App() {
-  const { status, session, track, positions, lapData, radioEntries, loadingMessage } = useF1Data();
+  const { status, session, track, positions, lapData, radioEntries, raceControlEntries, loadingMessage } = useF1Data();
 
   return (
     <div className="h-screen bg-[#050505] text-white flex font-sans overflow-hidden">
@@ -50,7 +50,7 @@ export default function App() {
 
             {/* Bottom: Team Radio / Race Control - 항상 렌더링 */}
             <div className="flex-[2] border-t border-white/10 bg-[#0a0a0a] overflow-hidden">
-              <TeamRadio entries={radioEntries} />
+              <TeamRadio entries={radioEntries} raceControlEntries={raceControlEntries} />
             </div>
           </div>
 
