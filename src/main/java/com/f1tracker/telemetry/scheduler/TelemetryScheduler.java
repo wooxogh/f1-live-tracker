@@ -24,12 +24,24 @@ public class TelemetryScheduler {
         String sessionKeyStr = redisTemplate.opsForValue().get(REDIS_SESSION_KEY);
         if (sessionKeyStr == null) return;
 
+        int sessionKey;
         try {
-            int sessionKey = Integer.parseInt(sessionKeyStr);
+            sessionKey = Integer.parseInt(sessionKeyStr);
+        } catch (NumberFormatException e) {
+            log.error("Invalid session key: {}", sessionKeyStr);
+            return;
+        }
+
+        try {
             teamRadioService.pollAndBroadcast(sessionKey);
+        } catch (Exception e) {
+            log.error("Failed to poll team radio: {}", e.getMessage());
+        }
+
+        try {
             raceControlService.pollAndBroadcast(sessionKey);
         } catch (Exception e) {
-            log.error("Failed to poll telemetry: {}", e.getMessage());
+            log.error("Failed to poll race control: {}", e.getMessage());
         }
     }
 }
