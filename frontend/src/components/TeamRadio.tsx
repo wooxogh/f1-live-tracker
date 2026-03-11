@@ -121,9 +121,12 @@ export function TeamRadio({ entries, raceControlEntries }: TeamRadioProps) {
             No messages yet
           </div>
         ) : (
-          feed.map((item, idx) =>
-            item.type === 'radio' ? (
-              <div key={idx} className="flex gap-3 text-sm font-mono items-start">
+          feed.map((item) => {
+            const key = item.type === 'radio'
+              ? `radio-${item.data.date}-${item.data.driverNumber}`
+              : `rc-${item.data.date}`;
+            return item.type === 'radio' ? (
+              <div key={key} className="flex gap-3 text-sm font-mono items-start">
                 <div className="text-white/40 w-16 shrink-0 text-xs pt-0.5">
                   {formatTime(item.data.date)}
                 </div>
@@ -145,7 +148,7 @@ export function TeamRadio({ entries, raceControlEntries }: TeamRadioProps) {
                 </div>
               </div>
             ) : (
-              <div key={idx} className="flex gap-3 text-sm font-mono items-start">
+              <div key={key} className="flex gap-3 text-sm font-mono items-start">
                 <div className="text-white/40 w-16 shrink-0 text-xs pt-0.5">
                   {formatTime(item.data.date)}
                 </div>
@@ -158,8 +161,8 @@ export function TeamRadio({ entries, raceControlEntries }: TeamRadioProps) {
                   <span className="text-white/80 text-xs">{item.data.message}</span>
                 </div>
               </div>
-            )
-          )
+            );
+          })
         )}
       </div>
     </div>
