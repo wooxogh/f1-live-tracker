@@ -21,6 +21,7 @@ spring:
 openf1:
   base-url: https://api.openf1.org/v1
   poll-interval-ms: 3000  # 3초마다 위치 갱신 (OpenF1 rate limit: 30req/min)
+  override-session-key: ${OVERRIDE_SESSION_KEY:-1}  # 로컬 개발용 세션 고정 (예: 9693 = 멜버른 2025)
 
 server:
   port: 8080
