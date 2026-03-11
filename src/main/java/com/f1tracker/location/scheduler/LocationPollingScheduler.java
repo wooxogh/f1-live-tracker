@@ -6,6 +6,7 @@ import com.f1tracker.telemetry.service.TeamRadioService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -25,11 +26,31 @@ public class LocationPollingScheduler {
     private final TeamRadioService teamRadioService;
     private final StringRedisTemplate redisTemplate;
 
+    @Value("${openf1.override-session-key:-1}")
+    private int overrideSessionKey;
+
     private static final String REDIS_SESSION_KEY = "f1:current_session";
     private final AtomicInteger currentSessionKey = new AtomicInteger(-1);
 
     @PostConstruct
     public void init() {
+        if (overrideSessionKey != -1) {
+            log.info("Override session key set: {}", overrideSessionKey);
+            currentSessionKey.set(overrideSessionKey);
+            redisTemplate.opsForValue().set(REDIS_SESSION_KEY, String.valueOf(overrideSessionKey));
+            broadcastService.refreshDriverCache(overrideSessionKey);
+            teamRadioService.refreshDriverCache(overrideSessionKey);
+
+            // 과거 세션의 경우 세션 시작 시점부터 폴링
+            Map<String, Object> session = openF1Client.getSessionByKey(overrideSessionKey);
+            if (session != null) {
+                String dateStart = String.valueOf(session.get("date_start"));
+                String normalized = dateStart.substring(0, Math.min(19, dateStart.length())) + ".000";
+                broadcastService.setInitialPollDate(normalized);
+                log.info("Past session detected, polling from: {}", normalized);
+            }
+            return;
+        }
         refreshSession();
     }
 
