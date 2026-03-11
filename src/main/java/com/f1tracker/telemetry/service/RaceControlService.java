@@ -21,7 +21,7 @@ public class RaceControlService {
     private final SimpMessagingTemplate messagingTemplate;
     private final OpenF1Client openF1Client;
 
-    private volatile String lastRaceControlDate = null;
+    private volatile String lastRaceControlDate = ISO_FMT.format(Instant.now());
 
     private static final DateTimeFormatter ISO_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS").withZone(ZoneOffset.UTC);
@@ -52,6 +52,6 @@ public class RaceControlService {
     }
 
     public void reset() {
-        lastRaceControlDate = null;
+        lastRaceControlDate = ISO_FMT.format(Instant.now());
     }
 }
