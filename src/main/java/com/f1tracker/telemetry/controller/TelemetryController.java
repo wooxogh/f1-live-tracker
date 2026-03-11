@@ -1,14 +1,12 @@
 package com.f1tracker.telemetry.controller;
 
 import com.f1tracker.common.client.OpenF1Client;
-import com.f1tracker.telemetry.dto.TeamRadioMessage;
 import com.f1tracker.telemetry.service.TeamRadioService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1")
