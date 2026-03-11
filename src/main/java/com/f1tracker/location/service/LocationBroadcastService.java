@@ -105,6 +105,11 @@ public class LocationBroadcastService {
         log.info("Driver cache refreshed: {} drivers", driverCache.size());
     }
 
+    public void setInitialPollDate(String date) {
+        lastPollDate = date;
+        lastDateByDriver.clear();
+    }
+
     private Integer toInt(Object val) {
         if (val == null) return null;
         try { return Integer.parseInt(String.valueOf(val).replace(".0", "")); }
