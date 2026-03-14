@@ -33,6 +33,15 @@ export interface RaceControlEntry {
   message: string | null;
 }
 
+export interface ReplaySession {
+  sessionKey: number;
+  sessionName: string;
+  meetingName: string;
+  location: string;
+  countryName: string;
+  sessionDate: string;
+}
+
 export interface LapData {
   driver_number: number;
   lap_number: number | null;

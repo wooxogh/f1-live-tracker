@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 80" width="260" height="80">
+  <!-- Background -->
+  <rect width="260" height="80" rx="6" fill="#0D0D0D"/>
+
+  <!-- Top red accent bar -->
+  <rect x="0" y="0" width="260" height="4" rx="2" fill="#E10600"/>
+
+  <!-- Left red accent bar -->
+  <rect x="0" y="0" width="5" height="80" rx="2" fill="#E10600"/>
+
+  <!-- PITWALL text -->
+  <text x="22" y="56"
+    font-family="'Arial Black', 'Helvetica Neue', sans-serif"
+    font-weight="900"
+    font-size="34"
+    fill="white"
+    letter-spacing="6">PITWALL</text>
+
+  <!-- Subtitle -->
+  <text x="24" y="20"
+    font-family="'Arial', sans-serif"
+    font-weight="400"
+    font-size="9"
+    fill="#E10600"
+    letter-spacing="4">F1 LIVE TRACKER</text>
+</svg>

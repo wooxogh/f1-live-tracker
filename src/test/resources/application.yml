@@ -18,3 +18,7 @@ spring:
 openf1:
   base-url: https://api.openf1.org/v1
   poll-interval-ms: 3000
+
+f1:
+  signalr:
+    enabled: false

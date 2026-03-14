@@ -2,7 +2,7 @@ package com.f1tracker.session.controller;
 
 import com.f1tracker.common.client.OpenF1Client;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -19,15 +20,21 @@ public class SessionController {
     private final OpenF1Client openF1Client;
     private final StringRedisTemplate redisTemplate;
 
-    @Value("${openf1.override-session-key:-1}")
-    private int overrideSessionKey;
+    private static final String REDIS_SESSION_KEY = "f1:current_session";
 
     @GetMapping("/sessions/current")
     public ResponseEntity<Map<String, Object>> getCurrentSession() {
-        if (overrideSessionKey != -1) {
-            Map<String, Object> session = openF1Client.getSessionByKey(overrideSessionKey);
-            if (session == null) return ResponseEntity.noContent().build();
-            return ResponseEntity.ok(session);
+        String sessionKeyStr = null;
+        try {
+            sessionKeyStr = redisTemplate.opsForValue().get(REDIS_SESSION_KEY);
+        } catch (Exception e) {
+            log.warn("Failed to read session key from Redis, falling back to OpenF1: {}", e.getMessage());
+        }
+        if (sessionKeyStr != null) {
+            try {
+                Map<String, Object> session = openF1Client.getSessionByKey(Integer.parseInt(sessionKeyStr));
+                if (session != null) return ResponseEntity.ok(session);
+            } catch (NumberFormatException ignored) {}
         }
         Map<String, Object> session = openF1Client.getLatestSession();
         if (session == null) return ResponseEntity.noContent().build();

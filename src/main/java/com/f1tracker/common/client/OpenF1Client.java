@@ -131,4 +131,28 @@ public class OpenF1Client {
             return List.of();
         }
     }
+
+    public List<Map<String, Object>> getLocationsForSession(int sessionKey) {
+        try {
+            return openF1RestClient.get()
+                    .uri("/location?session_key={key}", sessionKey)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.error("Failed to fetch locations for session {}: {}", sessionKey, e.getMessage());
+            return List.of();
+        }
+    }
+
+    public List<Map<String, Object>> getRaceSessionsByYear(int year) {
+        try {
+            return openF1RestClient.get()
+                    .uri("/sessions?session_type=Race&year={year}", year)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.error("Failed to fetch race sessions for year {}: {}", year, e.getMessage());
+            return List.of();
+        }
+    }
 }
