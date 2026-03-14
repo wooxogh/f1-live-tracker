@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -24,6 +25,7 @@ public class TeamRadioService {
         List<TeamRadioMessage.RadioEntry> entries = captures.stream()
                 .map(r -> {
                     int driverNumber = toInt(r.get("driver_number"));
+                    if (driverNumber == 0) return null;
                     Map<String, Object> driver = driverCache.get(driverNumber);
                     return TeamRadioMessage.RadioEntry.builder()
                             .driverNumber(driverNumber)
@@ -33,6 +35,7 @@ public class TeamRadioService {
                             .recordingUrl(String.valueOf(r.get("recording_url")))
                             .build();
                 })
+                .filter(Objects::nonNull)
                 .toList();
 
         messagingTemplate.convertAndSend("/topic/radio/" + sessionKey,
@@ -46,6 +49,7 @@ public class TeamRadioService {
     }
 
     public void updateDriverCache(Map<Integer, Map<String, Object>> drivers) {
+        driverCache.clear();
         driverCache.putAll(drivers);
     }
 

@@ -9,6 +9,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -23,11 +24,13 @@ import java.net.http.WebSocket;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.Inflater;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(value = "f1.signalr.enabled", havingValue = "true", matchIfMissing = true)
 public class F1SignalRClient {
 
     private static final String BASE_URL = "https://livetiming.formula1.com/signalr";
@@ -48,6 +51,7 @@ public class F1SignalRClient {
     private volatile WebSocket webSocket;
     private volatile int sessionKey = -1;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    private final AtomicBoolean reconnectScheduled = new AtomicBoolean(false);
 
     @PostConstruct
     public void init() {
@@ -55,7 +59,7 @@ public class F1SignalRClient {
         httpClient = HttpClient.newBuilder()
                 .cookieHandler(cookieManager)
                 .build();
-        schedule(this::connect, 0);
+        scheduler.execute(this::connect);
     }
 
     @PreDestroy
@@ -70,9 +74,11 @@ public class F1SignalRClient {
         try {
             String token = negotiate();
             connectWebSocket(token);
+            reconnectScheduled.set(false); // 연결 성공 시 플래그 해제
         } catch (Exception e) {
             log.error("SignalR connect failed: {}", e.getMessage());
-            schedule(this::connect, 10);
+            reconnectScheduled.set(false);
+            scheduleReconnect();
         }
     }
 
@@ -87,8 +93,18 @@ public class F1SignalRClient {
                 HttpResponse.BodyHandlers.ofString()
         );
 
+        if (response.statusCode() != 200) {
+            log.error("SignalR negotiate failed: HTTP {} body={}", response.statusCode(), response.body());
+            throw new IllegalStateException("SignalR negotiate failed with HTTP " + response.statusCode());
+        }
+
         JsonNode json = objectMapper.readTree(response.body());
-        return json.get("ConnectionToken").asText();
+        JsonNode tokenNode = json.get("ConnectionToken");
+        if (tokenNode == null || tokenNode.isNull()) {
+            log.error("SignalR negotiate missing ConnectionToken. body={}", response.body());
+            throw new IllegalStateException("SignalR negotiate response missing ConnectionToken");
+        }
+        return tokenNode.asText();
     }
 
     private void connectWebSocket(String token) throws Exception {
@@ -125,13 +141,17 @@ public class F1SignalRClient {
     }
 
     private void scheduleReconnect() {
+        if (!reconnectScheduled.compareAndSet(false, true)) {
+            log.debug("Reconnect already scheduled, skipping duplicate.");
+            return;
+        }
         if (webSocket != null) {
             webSocket.abort();
             webSocket = null;
         }
         cookieManager.getCookieStore().removeAll();
-        schedule(this::connect, 10);
         log.warn("Reconnecting in 10s...");
+        schedule(this::connect, 10);
     }
 
     private void schedule(Runnable task, int delaySec) {

@@ -34,6 +34,9 @@ class SessionControllerTest {
                 "session_name", "Race",
                 "location", "Bahrain"
         );
+        ValueOperations<String, String> valueOps = org.mockito.Mockito.mock(ValueOperations.class);
+        given(redisTemplate.opsForValue()).willReturn(valueOps);
+        given(valueOps.get("f1:current_session")).willReturn(null); // Redis miss → fallback
         given(openF1Client.getLatestSession()).willReturn(session);
 
         mockMvc.perform(get("/api/v1/sessions/current"))
@@ -46,6 +49,9 @@ class SessionControllerTest {
     @Test
     @DisplayName("현재 세션 조회 - 세션 없을 때 204 반환")
     void getCurrentSession_noSession_returns204() throws Exception {
+        ValueOperations<String, String> valueOps = org.mockito.Mockito.mock(ValueOperations.class);
+        given(redisTemplate.opsForValue()).willReturn(valueOps);
+        given(valueOps.get("f1:current_session")).willReturn(null); // Redis miss → fallback
         given(openF1Client.getLatestSession()).willReturn(null);
 
         mockMvc.perform(get("/api/v1/sessions/current"))

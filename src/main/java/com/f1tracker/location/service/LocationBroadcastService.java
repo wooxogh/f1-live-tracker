@@ -27,8 +27,13 @@ public class LocationBroadcastService {
     public void onPositionUpdate(int sessionKey, Map<Integer, Map<String, Object>> positions) {
         positions.forEach((driverNumber, pos) -> {
             String redisKey = REDIS_LOCATION_PREFIX + sessionKey + ":" + driverNumber;
-            redisTemplate.opsForValue().set(redisKey,
-                    pos.get("x") + "," + pos.get("y") + "," + pos.get("z"));
+            try {
+                redisTemplate.opsForValue().set(redisKey,
+                        pos.get("x") + "," + pos.get("y") + "," + pos.get("z"));
+            } catch (RuntimeException e) {
+                log.warn("Failed to write position to Redis for session {} driver {}: {}",
+                        sessionKey, driverNumber, e.getMessage());
+            }
         });
 
         List<DriverLocationMessage.DriverPosition> driverPositions = positions.entrySet().stream()
@@ -58,6 +63,7 @@ public class LocationBroadcastService {
     }
 
     public void updateDriverCache(Map<Integer, Map<String, Object>> drivers) {
+        driverCache.clear();
         driverCache.putAll(drivers);
     }
 

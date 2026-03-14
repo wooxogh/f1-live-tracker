@@ -12,6 +12,10 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
+        jdbc:
+          batch_size: 500
+        order_inserts: true
+        order_updates: true
 
   data:
     redis:
@@ -23,3 +27,6 @@ openf1:
 
 server:
   port: 8080
+
+replay:
+  cache-cron: "0 0 3 * * *"
