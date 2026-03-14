@@ -2,8 +2,10 @@ package com.f1tracker;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
+@EnableScheduling
 public class F1LiveTrackerApplication {
 
 	public static void main(String[] args) {

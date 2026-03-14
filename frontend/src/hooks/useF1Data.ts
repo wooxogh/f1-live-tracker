@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { Session, TrackPoint, DriverPosition, LapData, RadioEntry } from '../types';
+import { Session, TrackPoint, DriverPosition, LapData, RadioEntry, RaceControlEntry, ReplaySession } from '../types';
+import { DRIVERS_2026 } from '../lib/drivers';
 
 export type ConnectionStatus = 'CONNECTING' | 'LIVE' | 'DISCONNECTED' | 'OFF_SEASON';
 
@@ -18,11 +19,36 @@ export function useF1Data() {
   const [track, setTrack]                 = useState<TrackPoint[] | null>(null);
   const [positions, setPositions]         = useState<Record<number, DriverPosition>>({});
   const [lapData, setLapData]             = useState<Record<number, LapData>>({});
-  const [radioEntries, setRadioEntries]   = useState<RadioEntry[]>([]);
+  const [radioEntries, setRadioEntries]       = useState<RadioEntry[]>([]);
+  const [raceControlEntries, setRaceControlEntries] = useState<RaceControlEntry[]>([]);
   const [loadingMessage, setLoadingMessage] = useState<string>('세션 정보 불러오는 중...');
+  const [mode, setMode]                   = useState<'live' | 'replay'>('live');
+  const [replaySessions, setReplaySessions] = useState<ReplaySession[]>([]);
+  const [speed, setSpeed]                 = useState<number>(1);
 
-  const stompClientRef = useRef<Client | null>(null);
-  const lapPollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stompClientRef   = useRef<Client | null>(null);
+  const lapPollRef       = useRef<ReturnType<typeof setInterval> | null>(null);
+  const liveSessionRef   = useRef<Session | null>(null);
+  const liveTrackRef     = useRef<TrackPoint[] | null>(null);
+  const replaySubRef     = useRef<{ unsubscribe: () => void } | null>(null);
+
+  // Fetch available replay sessions on mount
+  useEffect(() => {
+    fetch('/api/v1/replay/sessions')
+      .then(res => res.ok ? res.json() : [])
+      .then((data: Array<Record<string, unknown>>) => {
+        const sessions: ReplaySession[] = data.map(s => ({
+          sessionKey:  s.sessionKey  as number,
+          sessionName: s.sessionName as string,
+          meetingName: s.meetingName as string,
+          location:    s.location    as string,
+          countryName: s.countryName as string,
+          sessionDate: s.sessionDate as string,
+        }));
+        setReplaySessions(sessions);
+      })
+      .catch(() => { /* ignore */ });
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -35,6 +61,7 @@ export function useF1Data() {
         const sessionData: Session = await sessionRes.json();
         if (!isMounted) return;
         setSession(sessionData);
+        liveSessionRef.current = sessionData;
 
         setLoadingMessage('트랙 데이터 불러오는 중...');
         const trackRes = await fetch(`/api/v1/sessions/${sessionData.session_key}/track`);
@@ -42,9 +69,11 @@ export function useF1Data() {
         if (!isMounted) return;
         if (!trackData || trackData.length === 0) throw new Error('No track data');
         setTrack(trackData);
+        liveTrackRef.current = trackData;
 
-        // 팀 라디오 초기 로드
+        // 팀 라디오 + 레이스 컨트롤 초기 로드
         fetchRecentRadio(sessionData.session_key);
+        fetchRecentRaceControl(sessionData.session_key);
 
         setLoadingMessage('실시간 데이터 연결 중...');
         connectWebSocket(sessionData.session_key);
@@ -62,14 +91,33 @@ export function useF1Data() {
         const res = await fetch(`/api/v1/sessions/${sessionKey}/radio/recent`);
         if (!res.ok || !isMounted) return;
         const data = await res.json();
-        const entries: RadioEntry[] = data.map((r: Record<string, unknown>) => ({
-          driverNumber: r.driver_number as number,
-          nameAcronym:  r.name_acronym as string ?? '???',
-          teamColour:   r.team_colour  as string ?? 'FFFFFF',
-          date:         r.date         as string,
-          recordingUrl: r.recording_url as string,
-        }));
+        const entries: RadioEntry[] = data.map((r: Record<string, unknown>) => {
+          const driverNumber = r.driver_number as number;
+          const fallback = DRIVERS_2026.find(d => d.driverNumber === driverNumber);
+          return {
+            driverNumber,
+            nameAcronym:  r.name_acronym as string ?? fallback?.nameAcronym ?? '???',
+            teamColour:   r.team_colour  as string ?? fallback?.teamColour  ?? 'FFFFFF',
+            date:         r.date         as string,
+            recordingUrl: r.recording_url as string,
+          };
+        });
         if (isMounted) setRadioEntries(entries.reverse()); // 최신순
+      } catch { /* ignore */ }
+    };
+
+    const fetchRecentRaceControl = async (sessionKey: string) => {
+      try {
+        const res = await fetch(`/api/v1/sessions/${sessionKey}/race-control/recent`);
+        if (!res.ok || !isMounted) return;
+        const data: Record<string, unknown>[] = await res.json();
+        const entries: RaceControlEntry[] = data.map(r => ({
+          date:     r.date     as string,
+          category: r.category as string | null,
+          flag:     r.flag     as string | null,
+          message:  r.message  as string | null,
+        }));
+        if (isMounted) setRaceControlEntries(entries.reverse());
       } catch { /* ignore */ }
     };
 
@@ -91,6 +139,12 @@ export function useF1Data() {
             const data = JSON.parse(message.body);
             if (!data.entries?.length) return;
             setRadioEntries(prev => [...data.entries.reverse(), ...prev].slice(0, 50));
+          });
+
+          client.subscribe(`/topic/race-control/${sessionKey}`, (message) => {
+            const data = JSON.parse(message.body);
+            if (!data.entries?.length) return;
+            setRaceControlEntries(prev => [...data.entries.reverse(), ...prev].slice(0, 50));
           });
         },
         onDisconnect: () => { if (isMounted) setStatus('DISCONNECTED'); },
@@ -154,5 +208,84 @@ export function useF1Data() {
     };
   }, []);
 
-  return { status, session, track, positions, lapData, radioEntries, loadingMessage };
+  const startReplay = useCallback(async (sessionKey: number, replaySpeed: number) => {
+    // Start backend simulation
+    await fetch(`/api/v1/replay/${sessionKey}/start?speed=${replaySpeed}`, { method: 'POST' });
+
+    // Load track data for replay session
+    try {
+      const trackRes = await fetch(`/api/v1/sessions/${sessionKey}/track`);
+      if (trackRes.ok) {
+        const trackData: TrackPoint[] = await trackRes.json();
+        if (trackData && trackData.length > 0) setTrack(trackData);
+      }
+    } catch { /* ignore */ }
+
+    // Update session info from replaySessions list
+    const replayMeta = replaySessions.find(s => s.sessionKey === sessionKey);
+    if (replayMeta) {
+      setSession({
+        session_key:  String(replayMeta.sessionKey),
+        session_name: replayMeta.sessionName,
+        location:     replayMeta.location,
+        country_name: replayMeta.countryName,
+      });
+    }
+
+    // Unsubscribe previous replay subscription if any
+    if (replaySubRef.current) {
+      replaySubRef.current.unsubscribe();
+      replaySubRef.current = null;
+    }
+
+    // Subscribe to replay session topic via existing STOMP client
+    const client = stompClientRef.current;
+    if (client && client.connected) {
+      const sub = client.subscribe(`/topic/locations/${sessionKey}`, (message) => {
+        const data = JSON.parse(message.body);
+        setPositions(() => {
+          const next: Record<number, DriverPosition> = {};
+          (data.positions as DriverPosition[]).forEach(p => { next[p.driverNumber] = p; });
+          return next;
+        });
+      });
+      replaySubRef.current = sub;
+    }
+
+    setSpeed(replaySpeed);
+    setMode('replay');
+  }, [replaySessions]);
+
+  const stopReplay = useCallback(async () => {
+    await fetch('/api/v1/replay/stop', { method: 'POST' });
+
+    // Unsubscribe replay subscription
+    if (replaySubRef.current) {
+      replaySubRef.current.unsubscribe();
+      replaySubRef.current = null;
+    }
+
+    // Restore live session data
+    if (liveSessionRef.current) setSession(liveSessionRef.current);
+    if (liveTrackRef.current) setTrack(liveTrackRef.current);
+    setPositions({});
+    setMode('live');
+  }, []);
+
+  return {
+    status,
+    session,
+    track,
+    positions,
+    lapData,
+    radioEntries,
+    raceControlEntries,
+    loadingMessage,
+    mode,
+    replaySessions,
+    startReplay,
+    stopReplay,
+    speed,
+    setSpeed,
+  };
 }

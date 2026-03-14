@@ -12,14 +12,38 @@ import { useF1Data } from './hooks/useF1Data';
 import { Loader2 } from 'lucide-react';
 
 export default function App() {
-  const { status, session, track, positions, lapData, radioEntries, loadingMessage } = useF1Data();
+  const {
+    status,
+    session,
+    track,
+    positions,
+    lapData,
+    radioEntries,
+    raceControlEntries,
+    loadingMessage,
+    mode,
+    replaySessions,
+    startReplay,
+    stopReplay,
+    speed,
+    setSpeed,
+  } = useF1Data();
 
   return (
     <div className="h-screen bg-[#050505] text-white flex font-sans overflow-hidden">
       <SideNav />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <SessionHeader session={session} status={status} />
+        <SessionHeader
+          session={session}
+          status={status}
+          mode={mode}
+          replaySessions={replaySessions}
+          speed={speed}
+          onStartReplay={startReplay}
+          onStopReplay={stopReplay}
+          onSpeedChange={setSpeed}
+        />
 
         <main className="flex-1 flex overflow-hidden">
           {/* Center Column: Track Map & Team Radio */}
@@ -50,7 +74,7 @@ export default function App() {
 
             {/* Bottom: Team Radio / Race Control - 항상 렌더링 */}
             <div className="flex-[2] border-t border-white/10 bg-[#0a0a0a] overflow-hidden">
-              <TeamRadio entries={radioEntries} />
+              <TeamRadio entries={radioEntries} raceControlEntries={raceControlEntries} />
             </div>
           </div>
 

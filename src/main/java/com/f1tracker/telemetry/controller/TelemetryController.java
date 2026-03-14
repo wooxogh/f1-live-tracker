@@ -1,8 +1,6 @@
 package com.f1tracker.telemetry.controller;
 
 import com.f1tracker.common.client.OpenF1Client;
-import com.f1tracker.telemetry.dto.TeamRadioMessage;
-import com.f1tracker.telemetry.service.TeamRadioService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,7 +13,6 @@ import java.util.*;
 public class TelemetryController {
 
     private final OpenF1Client openF1Client;
-    private final TeamRadioService teamRadioService;
 
     /**
      * 세션의 드라이버별 최신 랩 데이터 반환
@@ -62,5 +59,17 @@ public class TelemetryController {
         // 최신 20개만 반환
         int fromIdx = Math.max(0, radio.size() - 20);
         return ResponseEntity.ok(radio.subList(fromIdx, radio.size()));
+    }
+
+    /**
+     * 세션의 레이스 컨트롤 메시지 반환 (초기 로드용)
+     */
+    @GetMapping("/sessions/{sessionKey}/race-control/recent")
+    public ResponseEntity<List<Map<String, Object>>> getRecentRaceControl(@PathVariable int sessionKey) {
+        List<Map<String, Object>> data = openF1Client.getRaceControl(sessionKey, null);
+        if (data == null || data.isEmpty()) return ResponseEntity.ok(List.of());
+
+        int fromIdx = Math.max(0, data.size() - 20);
+        return ResponseEntity.ok(data.subList(fromIdx, data.size()));
     }
 }
