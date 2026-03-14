@@ -1,6 +1,5 @@
 package com.f1tracker.telemetry.service;
 
-import com.f1tracker.common.client.OpenF1Client;
 import com.f1tracker.telemetry.dto.TeamRadioMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -8,8 +7,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,21 +17,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class TeamRadioService {
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final OpenF1Client openF1Client;
 
     private final Map<Integer, Map<String, Object>> driverCache = new ConcurrentHashMap<>();
-    private volatile String lastRadioDate = null;
 
-    private static final DateTimeFormatter ISO_FMT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS").withZone(ZoneOffset.UTC);
-
-    public void pollAndBroadcast(int sessionKey) {
-        List<Map<String, Object>> radios = openF1Client.getTeamRadio(sessionKey, lastRadioDate);
-        if (radios == null || radios.isEmpty()) return;
-
-        lastRadioDate = ISO_FMT.format(Instant.now());
-
-        List<TeamRadioMessage.RadioEntry> entries = radios.stream()
+    public void onTeamRadioUpdate(int sessionKey, List<Map<String, Object>> captures) {
+        List<TeamRadioMessage.RadioEntry> entries = captures.stream()
                 .map(r -> {
                     int driverNumber = toInt(r.get("driver_number"));
                     Map<String, Object> driver = driverCache.get(driverNumber);
@@ -48,25 +35,18 @@ public class TeamRadioService {
                 })
                 .toList();
 
-        TeamRadioMessage message = TeamRadioMessage.builder()
-                .sessionKey(sessionKey)
-                .timestamp(Instant.now())
-                .entries(entries)
-                .build();
+        messagingTemplate.convertAndSend("/topic/radio/" + sessionKey,
+                TeamRadioMessage.builder()
+                        .sessionKey(sessionKey)
+                        .timestamp(Instant.now())
+                        .entries(entries)
+                        .build());
 
-        messagingTemplate.convertAndSend("/topic/radio/" + sessionKey, message);
-        log.debug("Broadcast {} team radio messages for session {}", entries.size(), sessionKey);
+        log.debug("Broadcast {} team radio for session {}", entries.size(), sessionKey);
     }
 
-    public void refreshDriverCache(int sessionKey) {
-        List<Map<String, Object>> drivers = openF1Client.getDrivers(sessionKey);
-        if (drivers == null) return;
-        driverCache.clear();
-        lastRadioDate = null;
-        drivers.forEach(d -> {
-            int num = toInt(d.get("driver_number"));
-            driverCache.put(num, d);
-        });
+    public void updateDriverCache(Map<Integer, Map<String, Object>> drivers) {
+        driverCache.putAll(drivers);
     }
 
     private int toInt(Object val) {

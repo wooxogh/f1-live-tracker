@@ -1,7 +1,6 @@
 package com.f1tracker.telemetry.controller;
 
 import com.f1tracker.common.client.OpenF1Client;
-import com.f1tracker.telemetry.service.TeamRadioService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,7 +13,6 @@ import java.util.*;
 public class TelemetryController {
 
     private final OpenF1Client openF1Client;
-    private final TeamRadioService teamRadioService;
 
     /**
      * 세션의 드라이버별 최신 랩 데이터 반환
