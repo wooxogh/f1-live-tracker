@@ -128,12 +128,12 @@ public class F1SignalRClient {
         log.info("F1 Live Timing connected");
     }
 
-    private void subscribe() {
+    private void subscribe(WebSocket ws) {
         try {
             String topicsJson = objectMapper.writeValueAsString(TOPICS);
             String msg = String.format(
                     "{\"H\":\"Streaming\",\"M\":\"Subscribe\",\"A\":[%s],\"I\":1}", topicsJson);
-            webSocket.sendText(msg, true);
+            ws.sendText(msg, true);
             log.info("Subscribed to topics: {}", TOPICS);
         } catch (Exception e) {
             log.error("Subscribe failed: {}", e.getMessage());
@@ -345,7 +345,7 @@ public class F1SignalRClient {
         @Override
         public void onOpen(WebSocket ws) {
             ws.request(1);
-            subscribe();
+            subscribe(ws);
         }
 
         @Override
